@@ -1,5 +1,6 @@
 import random
 from time import perf_counter
+import math
 import os
 
 def h(heur_cache, state_t):
@@ -133,11 +134,11 @@ class Ant:
         self.moves = moves
 
 
-def detectMove(ant, dim, heur_cache, pher, ksi, alpha, beta, w):
+def detectMove(ant, dim, heur_cache, pher, ksi, alpha, T, beta, w):
     node = ant.currentNode
     best_state = None
     tau_0 = 0.1
-
+    h_curr = node.heuristic
     visited = ant.visitedStates
     moves = ant.moves + 1
     prevZero = node.zeroPos
@@ -173,7 +174,8 @@ def detectMove(ant, dim, heur_cache, pher, ksi, alpha, beta, w):
             else:
                 tau += pher.get((tile1,tile2,2), 0)
         
-        eta = 1.0 / (hh + 1.0)
+        delta = hh - h_curr
+        eta = pow(2.718281828, -delta / T)
 
         weight = (tau ** alpha) * (eta ** beta)
         weights.append(weight)
@@ -224,7 +226,7 @@ def detectMove(ant, dim, heur_cache, pher, ksi, alpha, beta, w):
     visited.add(tuple(best_state[0]))
     return new_node
 
-def AntSearch(InitialState, dim, N, top, s, ro, ksi, alpha, beta, w):
+def AntSearch(InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_min, p_max, beta, w):
     solution = [i for i in range(1,dim*dim)]
     solution.append(0)
     pheromonesDict = {} # 0 - top, 1 - rigth, 2 - down, 3 - left
@@ -234,23 +236,30 @@ def AntSearch(InitialState, dim, N, top, s, ro, ksi, alpha, beta, w):
         col = i%dim
         if raw != 0:
             t = solution[(raw-1) * dim + col]
-            pheromonesDict[(i+1, t, 0)] = 0
+            pheromonesDict[(i+1, t, 0)] = tau_0
         if col != dim-1:
             r = solution[raw * dim + col + 1]
             if r != 0:
-                pheromonesDict[(i+1, r, 1)] = 0
+                pheromonesDict[(i+1, r, 1)] = tau_0
         if raw != dim-1:
             d = solution[(raw + 1) * dim + col]
             if d != 0:
-                pheromonesDict[(i+1, d, 2)] = 0
+                pheromonesDict[(i+1, d, 2)] = tau_0
         if col != 0:
             l = solution[raw * dim + col - 1]
-            pheromonesDict[(i+1, l, 3)] = 0
-
-
+            pheromonesDict[(i+1, l, 3)] = tau_0
 
     heur_cache = {}
     solved = False
+    global_best_h = math.inf
+    stagnation = 0
+
+    # Parametry załeżny od danych wejściowych
+    D = -delta0/math.log((p_min+p_max/2)) * beta # 2.88
+    D_min = -delta0/math.log(p_min) * beta  # Tmin1 = -Δ0 / ln(p_min) * beta
+    D_max = -delta0/math.log(p_max) * beta  # Tmax1 = -Δ0 / ln(p_max) * beta
+    tau_max = 10 * tau_0
+    tau_min = tau_max/50
     
     initial_t = tuple(InitialState)
     InitialNode = Node(InitialState, InitialState.index(0), None, h(heur_cache, tuple(InitialState)))
@@ -261,7 +270,7 @@ def AntSearch(InitialState, dim, N, top, s, ro, ksi, alpha, beta, w):
         visit_count = {}
         for _ in range(s):
             for ant in ants:
-                ant.currentNode = detectMove(ant, dim, heur_cache, pheromonesDict, ksi, alpha, beta, w)
+                ant.currentNode = detectMove(ant, dim, heur_cache, pheromonesDict, ksi, alpha, D, beta, w)
                 st = tuple(ant.currentNode.state)
                 if ant.bestNode == None or ant.currentNode.heuristic < ant.bestNode.heuristic:
                     ant.bestNode = ant.currentNode
@@ -279,7 +288,7 @@ def AntSearch(InitialState, dim, N, top, s, ro, ksi, alpha, beta, w):
                 bestAnt = ant
 
         bestState = bestAnt.bestNode.state
-        distance = 1 / (bestAnt.bestNode.heuristic + 1e-9)
+        distance = 1 / (bestAnt.bestNode.heuristic + 1)
         for i in range(dim*dim):
             tile = bestState[i]
             raw = i//dim
@@ -306,8 +315,17 @@ def AntSearch(InitialState, dim, N, top, s, ro, ksi, alpha, beta, w):
                     pheromonesDict[key] += ro*distance/(1-ro)
 
         for key in pheromonesDict:
-            pheromonesDict[key] *= (1-ro)
+            pheromonesDict[key] = max(tau_min, min(pheromonesDict[key]* (1-ro), tau_max))
         print(bestAnt.bestNode.heuristic, bestAnt.bestNode.state)
+        if minheuristic < global_best_h:
+            global_best_h = minheuristic
+            D *= 0.95
+            stagnation = 0
+        stagnation += 1
+        if stagnation > R:
+            stagnation = stagnation//2
+            D *= 1.2
+        D = min(D_max, max(D_min, D))
         ants = []
         bestNodesList = sorted(bestNodesList, key=lambda x: x[1])[:top]
         for node in bestNodesList:
@@ -342,6 +360,8 @@ start7x7 = [i for i in range(1, 49)]
 start7x7.append(0)
 start8x8 = [i for i in range(1, 64)]
 start8x8.append(0)
+start9x9 = [i for i in range(1, 81)]
+start9x9.append(0)
 test80 = [0,12,9,13,15,11,10,14,7,8,5,6,4,3,2,1]
 test80_2 = [0,12,9,13,15,11,10,14,3,7,2,5,4,8,6,1]
 bad_conf = [1,5,9,13,2,6,10,14,3,7,11,15,4,8,12,0]
@@ -353,13 +373,22 @@ test5x5 = [2,17,1,5,23,15,10,7,8,4,21,20,19,0,24,3,11,22,9,12,18,13,16,6,14]
 
 test6x6 = shuffle(start6x6, 6)
 test7x7 = shuffle(start7x7, 7)
+test8x8 = shuffle(start8x8, 8)
+test9x9 = shuffle(start9x9, 9)
 n = 5
 movesForAnt = build_moves_for_ant(n)
 manhattan_LC = inicializeCriteriumFunc(n)
-# start = perf_counter()
-# InitialState, dim, N, top, tau_min, tau_max, s, ro, ksi, alpha, beta, w
-res = AntSearch(test5x5, n, 2000, 200, 50, 0.2, 0.3, 1, 1, 1) 
-# end = perf_counter()
-res = PathTrace(res)
-printTrace(res)
-print(len(res))
+
+#           InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_min, p_max, beta, w
+res1 = AntSearch(test5x5, n, 2000, 200, 50, 10, 0.2, 0.05, 0.2, 2, 3, 0.05, 0.7, 1, 0.8) 
+# movesForAnt = build_moves_for_ant(9)
+# manhattan_LC = inicializeCriteriumFunc(9)
+# res2 = AntSearch(test9x9, 9, 2000, 200, 50, 10, 0.2, 0.2, 0.3, 1, 4, 0.05, 0.7, 1, 1)
+# delta0 - jaką złą zmianę heurystyki chciałbym dopuścić
+# p_min - jak dużo chcę dopuszczać zmianę heurystyki delta0 z małym niepokojem kolonii
+# p_max - jak dużo chcę dopuszczać zmianę heurystyki delta0 z dużym niepokojem kolonii
+
+res1 = PathTrace(res1)
+print(len(res1))
+# res2 = PathTrace(res2)
+# print(len(res2))
