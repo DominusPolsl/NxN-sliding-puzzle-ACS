@@ -381,12 +381,22 @@ manhattan_LC = inicializeCriteriumFunc(n)
 
 #           InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_min, p_max, beta, w
 res1 = AntSearch(test5x5, n, 2000, 200, 50, 10, 0.2, 0.05, 0.2, 2, 3, 0.05, 0.7, 1, 0.8) 
-# movesForAnt = build_moves_for_ant(9)
-# manhattan_LC = inicializeCriteriumFunc(9)
-# res2 = AntSearch(test9x9, 9, 2000, 200, 50, 10, 0.2, 0.2, 0.3, 1, 4, 0.05, 0.7, 1, 1)
-# delta0 - jaką złą zmianę heurystyki chciałbym dopuścić
-# p_min - jak dużo chcę dopuszczać zmianę heurystyki delta0 z małym niepokojem kolonii
-# p_max - jak dużo chcę dopuszczać zmianę heurystyki delta0 z dużym niepokojem kolonii
+# InitialState - The beginning of ants journery
+# dim - sliding puzzle dimension(more of a size e.g. 3x3, 4x4, 5x5)
+# N - number of ants in colony
+# top - number of best nodes left after each global iteration for beam search
+# s - number of steps ants would made exploring states
+# R - the threshold representing how many global iterations without heuristic improvment we would tolerate
+# tau_0 - the initial pheromone impact coefficient
+# ro - the global pheramone evaporation coefficient. Applied to every relation in PheramoneDict
+# ksi - the local pheramone evaporation coefficient. Applied localy to one-four correct relations per move of an ant
+# alpha - the power of pheromone impact
+# delta0 - the worst critteria function change we want to tolerate
+# p_min - the toleration of critteria function bad difference with low colony disturbance coefficient
+# p_max - the toleration of critteria function bad difference with high colony disturbance coefficient
+# beta - the power of critteria function impact on ant move decision
+# w - the weight which regulates importance of Manhattan Distance + Linear Conflict critterium and moves at the same time
+
 
 res1 = PathTrace(res1)
 print(len(res1))
