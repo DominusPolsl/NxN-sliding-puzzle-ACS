@@ -360,6 +360,8 @@ start8x8 = [i for i in range(1, 64)]
 start8x8.append(0)
 start9x9 = [i for i in range(1, 81)]
 start9x9.append(0)
+start10x10 = [i for i in range(1, 100)]
+start10x10.append(0)
 test80 = [0,12,9,13,15,11,10,14,7,8,5,6,4,3,2,1]
 test80_2 = [0,12,9,13,15,11,10,14,3,7,2,5,4,8,6,1]
 bad_conf = [1,5,9,13,2,6,10,14,3,7,11,15,4,8,12,0]
@@ -373,12 +375,13 @@ test6x6 = shuffle(start6x6, 6)
 test7x7 = shuffle(start7x7, 7)
 test8x8 = shuffle(start8x8, 8)
 test9x9 = shuffle(start9x9, 9)
-n = 5
+test10x10 = shuffle(start10x10, 10)
+n = 10
 movesForAnt = build_moves_for_ant(n)
 manhattan_LC = inicializeCriteriumFunc(n)
 
 #           InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_min, p_max, beta, w
-res1 = AntSearch(test5x5, n, 2000, 200, 50, 10, 0.2, 0.05, 0.2, 2, 3, 0.05, 0.7, 1, 0.8) 
+res1 = AntSearch(test10x10, n, 2000, 200, 50, 10, 0.2, 0.05, 0.2, 2, 3, 0.05, 0.7, 1, 0.8) 
 # InitialState - The beginning of ants journery
 # dim - sliding puzzle dimension(more of a size e.g. 3x3, 4x4, 5x5)
 # N - number of ants in colony
