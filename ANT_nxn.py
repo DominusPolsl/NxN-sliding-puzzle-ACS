@@ -267,7 +267,6 @@ def AntSearch(InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_
     ants = [Ant(InitialNode, {initial_t}, 0) for _ in range(N)]
     while not solved:
         bestNodesList = []
-        visit_count = {}
         for _ in range(s):
             for ant in ants:
                 ant.currentNode = detectMove(ant, dim, heur_cache, pheromonesDict, ksi, alpha, D, beta, w)
@@ -276,7 +275,6 @@ def AntSearch(InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_
                     ant.bestNode = ant.currentNode
                 if ant.currentNode.state == solution:
                     return ant.currentNode
-                visit_count[st] = visit_count.get(st, 0) + 1
             
         bestAnt = ants[0]
         minheuristic = bestAnt.bestNode.heuristic
