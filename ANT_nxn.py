@@ -3,6 +3,7 @@ from time import perf_counter
 import math
 import os
 
+# Caching the specific state and criteria function pair, so that it can be reused in future without necessecity of calculating it again
 def h(heur_cache, state_t):
     v = heur_cache.get(state_t)
     if v is None:
@@ -28,6 +29,9 @@ def detectRank(table, n):
     emptyRank = n - pos//n
     return emptyRank
 
+# Function that checks the solvability of sliding puzzle. When the side length of sliding puzzle is odd then
+# only the parity of inversions are taken into an account. When the side length is even then the parity of number of inversions
+# and the zero raw rank are taken into account
 def isSolvable(table, n):
     inv = countInversions(table, n)
     if n % 2 == 1:
@@ -98,16 +102,16 @@ def build_moves_for_ant(n: int) -> tuple[tuple[int, ...], ...]:
         r, c = divmod(pos, n)
         neigh = []
 
-        # góra
+        # up
         if r > 0:
             neigh.append(pos - n)
-        # dół
+        # down
         if r < n - 1:
             neigh.append(pos + n)
-        # lewo
+        # left
         if c > 0:
             neigh.append(pos - 1)
-        # prawo
+        # right
         if c < n - 1:
             neigh.append(pos + 1)
 
@@ -127,11 +131,11 @@ class Node:
 
 class Ant:
     def __init__(self, node, vs, moves):
-        self.visitedStates = vs
-        self.currentNode = node
-        self.found = False 
-        self.bestNode = None
-        self.moves = moves
+        # Everything resets after ant return to the colony
+        self.visitedStates = vs # states that ant visited
+        self.currentNode = node # node where ant is currently located
+        self.bestNode = None # the best state which ant
+        self.moves = moves # number of moves that ant made
 
 
 def detectMove(ant, dim, heur_cache, pher, ksi, alpha, T, beta, w):
@@ -153,10 +157,13 @@ def detectMove(ant, dim, heur_cache, pher, ksi, alpha, T, beta, w):
 
         if state_t in visited:
             continue
+        # Keep the ant form returning to the state it came from
         if node.parent is not None and tuple(new_state) == tuple(node.parent.state):
             continue
 
-        hh = w * h(heur_cache, state_t) + (1 - w) * moves
+        hh = w * h(heur_cache, state_t) + (1 - w) * moves # the criteria function value
+
+        # ==== Getting pheromones from every correct relation and adding to tau, which is a pheromone coefficient
         tau = tau_0
         tile1 = new_state[prevZero]
         raw1 = prevZero // dim
@@ -174,14 +181,14 @@ def detectMove(ant, dim, heur_cache, pher, ksi, alpha, T, beta, w):
             else:
                 tau += pher.get((tile1,tile2,2), 0)
         
-        delta = hh - h_curr
-        eta = pow(2.718281828, -delta / T)
+        delta = hh - h_curr # criteria function difference between current value and new one
+        eta = pow(2.718281828, -delta / T) # the coefficient of criteria function, depends on criteria function improvement and colony disturbance
 
         weight = (tau ** alpha) * (eta ** beta)
         weights.append(weight)
         candidates.append((new_state, dir, hh))
 
-    # roulette wheel
+    # roulette wheel, to choose the best among candidates but without being deterministic
     W = sum(weights)
     r = random.uniform(0, W)
     c = 0
@@ -200,6 +207,7 @@ def detectMove(ant, dim, heur_cache, pher, ksi, alpha, T, beta, w):
     tile1 = best_state[0][prevZero]
     raw1 = prevZero // dim
     col1 = prevZero % dim
+    # Local evaporation mechanism, prevents ant from doing same moves for long time
     for neigh in movesForAnt[prevZero]:
         tile2 = best_state[0][neigh]
         raw2 = neigh // dim
@@ -207,7 +215,7 @@ def detectMove(ant, dim, heur_cache, pher, ksi, alpha, T, beta, w):
         if col1 > col2:
             key = (tile1,tile2,3)
             if key in pher:
-                pher[key] = pher[key] * (1-ksi) + ksi * tau_0
+                pher[key] = pher[key] * (1-ksi) + ksi * tau_0 # + ksi * tau_0 - Relaxation to the initial value
         elif col1 < col2:
             key = (tile1,tile2,1)
             if key in pher:
@@ -229,7 +237,8 @@ def detectMove(ant, dim, heur_cache, pher, ksi, alpha, T, beta, w):
 def AntSearch(InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_min, p_max, beta, w):
     solution = [i for i in range(1,dim*dim)]
     solution.append(0)
-    pheromonesDict = {} # 0 - top, 1 - rigth, 2 - down, 3 - left
+    pheromonesDict = {} # 0 - up, 1 - rigth, 2 - down, 3 - left
+    # Setting pheromones dictionary which keys are correct relations in sliding puzzle
     # {(1,2,1): 0.1, (1,4,2): 0.1}
     for i in range(dim*dim-1):
         raw = i//dim
@@ -251,15 +260,17 @@ def AntSearch(InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_
 
     heur_cache = {}
     solved = False
-    global_best_h = math.inf
-    stagnation = 0
+    global_best_h = math.inf # The best criterium function value 
+    stagnation = 0 # stagnation is counter that keeps track how close colony is to the increment of disturbance
 
-    # Parametry załeżny od danych wejściowych
+    # parametrs dependent on input data
     D = -delta0/math.log((p_min+p_max/2)) * beta # 2.88
     D_min = -delta0/math.log(p_min) * beta  # Tmin1 = -Δ0 / ln(p_min) * beta
     D_max = -delta0/math.log(p_max) * beta  # Tmax1 = -Δ0 / ln(p_max) * beta
-    tau_max = 10 * tau_0
-    tau_min = tau_max/50
+    # -delta0/math.log((p_min+p_max/2)) - in other words it is how much of allowance we want to give to bad criteria function change
+
+    tau_max = 10 * tau_0 # maximal pheromone value
+    tau_min = tau_max/50 # minimal pheromone value
     
     initial_t = tuple(InitialState)
     InitialNode = Node(InitialState, InitialState.index(0), None, h(heur_cache, tuple(InitialState)))
@@ -267,15 +278,15 @@ def AntSearch(InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_
     ants = [Ant(InitialNode, {initial_t}, 0) for _ in range(N)]
     while not solved:
         bestNodesList = []
-        for _ in range(s):
+        for _ in range(s): # s steps before ants return to the base
             for ant in ants:
                 ant.currentNode = detectMove(ant, dim, heur_cache, pheromonesDict, ksi, alpha, D, beta, w)
-                st = tuple(ant.currentNode.state)
                 if ant.bestNode == None or ant.currentNode.heuristic < ant.bestNode.heuristic:
                     ant.bestNode = ant.currentNode
                 if ant.currentNode.state == solution:
                     return ant.currentNode
-            
+
+        # ==== Choosing the best node among all ants ==== 
         bestAnt = ants[0]
         minheuristic = bestAnt.bestNode.heuristic
         for ant in ants:
@@ -286,6 +297,8 @@ def AntSearch(InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_
                 bestAnt = ant
 
         bestState = bestAnt.bestNode.state
+
+        # ==== Pheromone increment for correct relations in the node with the best criteria function value ====
         distance = 1 / (bestAnt.bestNode.heuristic + 1)
         for i in range(dim*dim):
             tile = bestState[i]
@@ -312,18 +325,25 @@ def AntSearch(InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_
                 if key in pheromonesDict:
                     pheromonesDict[key] += ro*distance/(1-ro)
 
+        # ==== Evaporating all pheromones respectfully to evaporation coefficient ====
         for key in pheromonesDict:
             pheromonesDict[key] = max(tau_min, min(pheromonesDict[key]* (1-ro), tau_max))
         print(bestAnt.bestNode.heuristic, bestAnt.bestNode.state)
+
+        # ==== Decreasment of disturbance coefficient ====
         if minheuristic < global_best_h:
             global_best_h = minheuristic
             D *= 0.95
             stagnation = 0
         stagnation += 1
+
+        # ==== Increasment of disturbance coefficient ====
         if stagnation > R:
             stagnation = stagnation//2
             D *= 1.2
         D = min(D_max, max(D_min, D))
+
+        # ==== Choosing top best nodes and then making them the starting points for ants ====
         ants = []
         bestNodesList = sorted(bestNodesList, key=lambda x: x[1])[:top]
         for node in bestNodesList:
@@ -376,12 +396,12 @@ test7x7 = shuffle(start7x7, 7)
 test8x8 = shuffle(start8x8, 8)
 test9x9 = shuffle(start9x9, 9)
 test10x10 = shuffle(start10x10, 10)
-n = 10
+n = 8
 movesForAnt = build_moves_for_ant(n)
 manhattan_LC = inicializeCriteriumFunc(n)
 
 #           InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_min, p_max, beta, w
-res1 = AntSearch(test10x10, n, 2000, 200, 50, 10, 0.2, 0.05, 0.2, 2, 3, 0.05, 0.7, 1, 0.8) 
+res1 = AntSearch(test8x8, n, 200, 30, 100, 5, 0.2, 0.05, 0.2, 2, 10, 0.001, 0.8, 1, 1) 
 # InitialState - The beginning of ants journery
 # dim - sliding puzzle dimension(more of a size e.g. 3x3, 4x4, 5x5)
 # N - number of ants in colony
