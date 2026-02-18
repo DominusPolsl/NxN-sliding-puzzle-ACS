@@ -264,7 +264,7 @@ def AntSearch(InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_
     stagnation = 0 # stagnation is counter that keeps track how close colony is to the increment of disturbance
 
     # parametrs dependent on input data
-    D = -delta0/math.log((p_min+p_max/2)) * beta # 2.88
+    D = -delta0/math.log(p_min+math.pow(p_min,1/math.pow(math.e, p_max))) * beta # 2.88
     D_min = -delta0/math.log(p_min) * beta  # Tmin1 = -Δ0 / ln(p_min) * beta
     D_max = -delta0/math.log(p_max) * beta  # Tmax1 = -Δ0 / ln(p_max) * beta
     # -delta0/math.log((p_min+p_max/2)) - in other words it is how much of allowance we want to give to bad criteria function change
@@ -396,12 +396,14 @@ test7x7 = shuffle(start7x7, 7)
 test8x8 = shuffle(start8x8, 8)
 test9x9 = shuffle(start9x9, 9)
 test10x10 = shuffle(start10x10, 10)
-n = 8
+n = 4
 movesForAnt = build_moves_for_ant(n)
 manhattan_LC = inicializeCriteriumFunc(n)
 
 #           InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_min, p_max, beta, w
-res1 = AntSearch(test8x8, n, 200, 30, 100, 5, 0.2, 0.05, 0.2, 2, 10, 0.001, 0.8, 1, 1) 
+start = perf_counter()
+res1 = AntSearch(bad_conf, n, 500, 60, 16, 5, 0.2, 0.05, 0.2, 2, 3, 0.001, 0.95, 1, 1) 
+end = perf_counter()
 # InitialState - The beginning of ants journery
 # dim - sliding puzzle dimension(more of a size e.g. 3x3, 4x4, 5x5)
 # N - number of ants in colony
@@ -421,5 +423,32 @@ res1 = AntSearch(test8x8, n, 200, 30, 100, 5, 0.2, 0.05, 0.2, 2, 10, 0.001, 0.8,
 
 res1 = PathTrace(res1)
 print(len(res1))
-# res2 = PathTrace(res2)
-# print(len(res2))
+print(end-start)
+
+
+# def ZeroTrace(path):
+#     nodesZeroList = []
+#     nodesCounter = len(path)
+#     for p in path:
+#         nodesZeroList.append(p.index(0))
+
+#     return nodesZeroList, nodesCounter
+
+
+# with os.scandir("In") as entries:
+#     for entry in entries:
+#         if entry.is_file():
+#             with open(entry.path, 'r') as f:
+#                 t = [int(i) for i in f.readline().split(', ')]
+#                 start = perf_counter()
+#                 solution = AntSearch(t, n, 200, 40, 30, 5, 0.2, 0.05, 0.2, 2, 3, 0.001, 0.95, 1, 1) 
+#                 end = perf_counter()
+#                 path = PathTrace(solution)
+#                 nodesStats = ZeroTrace(path)
+#                 nodesZeroList = nodesStats[0]
+#                 nodesCounter = nodesStats[1]
+#                 raw1 = f"Blank element moves: {'->'.join([str(i) for i in nodesZeroList])}\n"
+#                 raw2 = f"Number of moves: {nodesCounter - 1}\n"
+#                 raw3 = f"Solution search time: {end-start:.5f}\n"
+#                 with open(f"{'Out'}/{entry.name[:-4]}_out.txt", "w", encoding="utf-8") as f:
+#                     f.writelines([raw1, raw2, raw3])
