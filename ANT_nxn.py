@@ -76,7 +76,7 @@ def inicializeCriteriumFunc(n):
                         if row_tiles[j] > row_tiles[k]:
                             h += 2
 
-            for col in range(n):
+            for col in range(n): 
                 col_tiles = []
                 for row in range(n):
                     tile = table[row * n + col]
@@ -138,10 +138,9 @@ class Ant:
         self.moves = moves # number of moves that ant made
 
 
-def detectMove(ant, dim, heur_cache, pher, ksi, alpha, T, beta, w):
+def detectMove(ant, dim, heur_cache, pher, tau_0, ksi, alpha, T, beta, w):
     node = ant.currentNode
     best_state = None
-    tau_0 = 0.1
     h_curr = node.heuristic
     visited = ant.visitedStates
     moves = ant.moves + 1
@@ -235,6 +234,7 @@ def detectMove(ant, dim, heur_cache, pher, ksi, alpha, T, beta, w):
     return new_node
 
 def AntSearch(InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_min, p_max, beta, w):
+    N = N - (N%top)
     solution = [i for i in range(1,dim*dim)]
     solution.append(0)
     pheromonesDict = {} # 0 - up, 1 - rigth, 2 - down, 3 - left
@@ -264,7 +264,7 @@ def AntSearch(InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_
     stagnation = 0 # stagnation is counter that keeps track how close colony is to the increment of disturbance
 
     # parametrs dependent on input data
-    D = -delta0/math.log(p_min+math.pow(p_min,1/math.pow(math.e, p_max))) * beta # 2.88
+    D = -delta0/math.log(math.sqrt(p_min*p_max)) * beta
     D_min = -delta0/math.log(p_min) * beta  # Tmin1 = -Δ0 / ln(p_min) * beta
     D_max = -delta0/math.log(p_max) * beta  # Tmax1 = -Δ0 / ln(p_max) * beta
     # -delta0/math.log((p_min+p_max/2)) - in other words it is how much of allowance we want to give to bad criteria function change
@@ -273,7 +273,7 @@ def AntSearch(InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_
     tau_min = tau_max/50 # minimal pheromone value
     
     initial_t = tuple(InitialState)
-    InitialNode = Node(InitialState, InitialState.index(0), None, h(heur_cache, tuple(InitialState)))
+    InitialNode = Node(InitialState, InitialState.index(0), None, w * h(heur_cache, tuple(InitialState)))
     print(manhattan_LC(InitialState))
     ants = [Ant(InitialNode, {initial_t}, 0) for _ in range(N)]
     while not solved:
@@ -302,6 +302,8 @@ def AntSearch(InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_
         distance = 1 / (bestAnt.bestNode.heuristic + 1)
         for i in range(dim*dim):
             tile = bestState[i]
+            if tile == 0:
+                continue
             raw = i//dim
             col = i%dim
             if raw != 0:
@@ -347,7 +349,7 @@ def AntSearch(InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_
         ants = []
         bestNodesList = sorted(bestNodesList, key=lambda x: x[1])[:top]
         for node in bestNodesList:
-            ants.extend([Ant(node[0], {tuple(node[0].state)}, 0) for _ in range(N//top + 1)])
+            ants.extend([Ant(node[0], {tuple(node[0].state)}, 0) for _ in range(N//top)])
 
 def printTrace(path):
     for st in path:
@@ -396,13 +398,13 @@ test7x7 = shuffle(start7x7, 7)
 test8x8 = shuffle(start8x8, 8)
 test9x9 = shuffle(start9x9, 9)
 test10x10 = shuffle(start10x10, 10)
-n = 4
+n = 6
 movesForAnt = build_moves_for_ant(n)
 manhattan_LC = inicializeCriteriumFunc(n)
 
 #           InitialState, dim, N, top, s, R, tau_0, ro, ksi, alpha, delta0, p_min, p_max, beta, w
 start = perf_counter()
-res1 = AntSearch(bad_conf, n, 500, 60, 16, 5, 0.2, 0.05, 0.2, 2, 3, 0.001, 0.95, 1, 1) 
+res1 = AntSearch(test6x6, n, 200, 40, 100, 5, 0.2, 0.05, 0.2, 2, 10, 0.001, 0.95, 1, 1) 
 end = perf_counter()
 # InitialState - The beginning of ants journery
 # dim - sliding puzzle dimension(more of a size e.g. 3x3, 4x4, 5x5)
@@ -422,8 +424,8 @@ end = perf_counter()
 
 
 res1 = PathTrace(res1)
-print(len(res1))
-print(end-start)
+print(f"Number of steps: {len(res1)}")
+print("Time (s): ", f"{end-start:.2f}")
 
 
 # def ZeroTrace(path):
