@@ -265,7 +265,7 @@ def AntSearch(initialState, n, N, top, s_min, s_max, tau_0, ro, ksi, alpha, R, a
 
     
     tau_min = tau_0# minimal pheromone value
-    tau_max = 100 * tau_0  # maximal pheromone value
+    tau_max = 1.0 # maximal pheromone value
     
     initial_t = tuple(initialState)
     InitialNode = Node(initialState, initialState.index(0), None, manhattan_LC(tuple(initialState)))
@@ -322,19 +322,14 @@ def AntSearch(initialState, n, N, top, s_min, s_max, tau_0, ro, ksi, alpha, R, a
                 if key in pheromonesDict:
                     pheromonesDict[key] += ro*distance/(1-ro)
 
-        # ==== Evaporating all pheromones respectfully to evaporation coefficient ====
-        for key in pheromonesDict:
-            pheromonesDict[key] = max(tau_min, min(pheromonesDict[key]* (1-ro), tau_max))
-        print(bestAnt.bestNode.heuristic, bestAnt.bestNode.state)
-
-        # ==== Decreasment of disturbance coefficient ====
+        # ==== Aktualizacja wskaźników stagnacji i zakłóceń ====
         if minheuristic < global_best_h:
             global_best_h = minheuristic
             stagnation = 0
             s = s_min + (1-Dc) * (s - s_min)
             s = int(round(s))
             D = D_min + (1-Dc) * (D - D_min) 
-        # ==== Increasment of disturbance coefficient ====
+            q = 0.0 # Brak stagnacji
         else:
             stagnation += 1
             q = min(1.0, stagnation / R)
@@ -345,6 +340,27 @@ def AntSearch(initialState, n, N, top, s_min, s_max, tau_0, ro, ksi, alpha, R, a
             D_target = D_min + (D_max - D_min) * (q ** 3)
             D = (1-Dp) * D + Dp * D_target   # wygładzanie
         D = min(D_max, max(D_min, D))
+
+        # ==== DYNAMICZNE ZARZĄDZANIE FEROMONAMI (MMAS) ====
+        # 1. tau_max dąży do asymptoty opartej na globalnie najlepszym rozwiązaniu
+        best_possible_distance = 1 / (1 + global_best_h / scale)
+        tau_max = best_possible_distance
+
+        # 2. Bazowe tau_min upewnia się, że zawsze jest szansa na eksplorację
+        # Używamy n * n (liczba wszystkich kafelków) by zrównoważyć różnice w rozmiarach planszy
+        base_tau_min = tau_max / (n * n)
+
+        # 3. Jeśli algorytm utyka (stagnation rośnie), podnosimy tau_min!
+        # Gdy q dąży do 1, tau_min zbliża się do tau_max, zmuszając mrówki do ignorowania
+        # starych feromonów i mocnej eksploracji.
+        tau_min = base_tau_min + q * (tau_max - base_tau_min)
+
+        # ==== Evaporating all pheromones respectfully to evaporation coefficient ====
+        for key in pheromonesDict:
+            # Tutaj używamy nowo policzonych dynamicznych limitów:
+            pheromonesDict[key] = max(tau_min, min(pheromonesDict[key] * (1-ro), tau_max))
+        
+        print(bestAnt.bestNode.heuristic, bestAnt.bestNode.state)
 
         # ==== Choosing top best nodes and then making them the starting points for ants ====
         ants = []
@@ -402,13 +418,13 @@ test8x8 = shuffle(start8x8, 8)
 test9x9 = shuffle(start9x9, 9)
 test10x10 = shuffle(start10x10, 10)
 test11x11 = shuffle(start11x11, 11)
-n = 8
+n = 7
 movesForAnt = build_moves_for_ant(n)
 manhattan_LC = inicializeCriteriumFunc(n)
 
 #           initialState, n, N, top, s_min, s_max, tau_0, ro, ksi, alpha, R, a_min, a_max, Dc, Dp, beta
 start = perf_counter()
-res1 = AntSearch(test8x8, n, 60, 20, 10, 80, 0.2, 0.05, 0.2, 2, 4, 0.1, 0.85, 0.8, 0.8, 1) 
+res1 = AntSearch(test7x7, n, 100, 20, 3, 50, 0.2, 0.05, 0.2, 2, 4, 0.1, 0.85, 0.8, 0.8, 1) 
 end = perf_counter()
 # initialState - The beginning of ants journery
 # n - sliding puzzle dimension(more of a size e.g. 3x3, 4x4, 5x5)
