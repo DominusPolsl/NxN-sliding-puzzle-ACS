@@ -128,7 +128,7 @@ class Ant:
         self.currentNode = node # node where ant is currently located
         self.bestNode = None # the best state which ant
 
-def detectMove(ant, n, pher, tau_0, ksi, alpha, D, beta):
+def detectMove(ant, n, pher, tau_0, xi, alpha, D, beta):
     node = ant.currentNode
     best_state = None
     h_curr = node.heuristic
@@ -175,11 +175,16 @@ def detectMove(ant, n, pher, tau_0, ksi, alpha, D, beta):
         if delta <= 0:
             eta = math.exp(-delta) # the coefficient of criteria function, depends on criteria function improvement and colony disturbance
         else:
-            eta = math.exp(-math.log1p(delta) / math.log1p(D))
+            eta = math.exp(-math.log(delta) / math.log(D))
 
         weight = (tau ** alpha) * (eta ** beta)
         weights.append(weight)
         candidates.append((new_state, dir, hh))
+
+    if len(candidates) == 0:
+        if parent.parent is not None:
+            ant.currentNode = parent.parent
+        return ant.currentNode
 
     # roulette wheel, to choose the best among candidates but without being deterministic
     W = sum(weights)
@@ -190,11 +195,6 @@ def detectMove(ant, n, pher, tau_0, ksi, alpha, D, beta):
         if r <= c:
             best_state = candidates[i]
             break
-
-    if best_state is None:
-        if parent.parent is not None:
-            ant.currentNode = parent.parent
-        return ant.currentNode
 
     tile1 = best_state[0][prevZero]
     raw1 = prevZero // n
@@ -207,26 +207,26 @@ def detectMove(ant, n, pher, tau_0, ksi, alpha, D, beta):
         if col1 > col2:
             key = (tile1,tile2,3)
             if key in pher:
-                pher[key] = pher[key] * (1-ksi) + ksi * tau_0 # + ksi * tau_0 - Relaxation to the initial value
+                pher[key] = pher[key] * (1-xi) + xi * tau_0 # + xi * tau_0 - Relaxation to the initial value
         elif col1 < col2:
             key = (tile1,tile2,1)
             if key in pher:
-                pher[key] = pher[key] * (1-ksi) + ksi * tau_0
+                pher[key] = pher[key] * (1-xi) + xi * tau_0
         elif raw1 > raw2:
             key = (tile1,tile2,0)
             if key in pher:
-                pher[key] = pher[key] * (1-ksi) + ksi * tau_0
+                pher[key] = pher[key] * (1-xi) + xi * tau_0
         else:
             key = (tile1,tile2,2)
             if key in pher:
-                pher[key] = pher[key] * (1-ksi) + ksi * tau_0
+                pher[key] = pher[key] * (1-xi) + xi * tau_0
 
     new_node = Node(best_state[0], best_state[1], parent, best_state[2])
     visited.add(tuple(best_state[0]))
     return new_node
 
-def AntSearch(initialState, n, N, top, s_min, s_max, tau_0, ro, ksi, alpha, R, a_min, a_max, Dc, Dp, beta):
-    delta0 = 2*(n - 1) - 1
+def AntSearch(initialState, n, N, top, s_min, s_max, tau_0, rho, xi, alpha, R, a_min, a_max, Dc, Dp, beta):
+    
     N = N - (N%top)
     s = s_min
     scale = n * n
@@ -253,29 +253,27 @@ def AntSearch(initialState, n, N, top, s_min, s_max, tau_0, ro, ksi, alpha, R, a
             l = solution[raw * n + col - 1]
             pheromonesDict[(i+1, l, 3)] = tau_0
 
-    solved = False
     global_best_h = math.inf # The best criterium function value 
     stagnation = 0 # stagnation is counter that keeps track how close colony is to the increment of disturbance
 
     # parametrs dependent on input data
-    
-    D_min = (math.exp(-math.log(1+delta0, a_min) - 1)) * beta   
-    D_max = (math.exp(-math.log(1+delta0, a_max) - 1)) * beta  
-    D = math.sqrt(D_min*D_max) * beta
+    delta0 = 2*(n - 1) - 1
+    D_min = (math.exp(-math.log(1+delta0, a_min))) * beta
+    D_max = (math.exp(-math.log(1+delta0, a_max))) * beta 
+    D = (math.sqrt(D_min*D_max)) 
 
     
     tau_min = tau_0# minimal pheromone value
-    tau_max = 1.0 # maximal pheromone value
     
     initial_t = tuple(initialState)
     InitialNode = Node(initialState, initialState.index(0), None, manhattan_LC(tuple(initialState)))
     print(manhattan_LC(initialState))
     ants = [Ant(InitialNode, {initial_t}) for _ in range(N)]
-    while not solved:
+    while True:
         bestNodesList = []
         for _ in range(s): # s steps before ants return to the base
             for ant in ants:
-                ant.currentNode = detectMove(ant, n, pheromonesDict, tau_0, ksi, alpha, D, beta)
+                ant.currentNode = detectMove(ant, n, pheromonesDict, tau_0, xi, alpha, D, beta)
                 if ant.bestNode == None or ant.currentNode.heuristic < ant.bestNode.heuristic:
                     ant.bestNode = ant.currentNode
                 if ant.currentNode.state == solution:
@@ -294,7 +292,7 @@ def AntSearch(initialState, n, N, top, s_min, s_max, tau_0, ro, ksi, alpha, R, a
         bestState = bestAnt.bestNode.state
 
         # ==== Pheromone increment for correct relations in the node with the best criteria function value ====
-        distance = 1 / (1 + bestAnt.bestNode.heuristic/scale)
+        distance = 1 / (1 + minheuristic/scale)
         for i in range(n*n):
             tile = bestState[i]
             if tile == 0:
@@ -305,60 +303,45 @@ def AntSearch(initialState, n, N, top, s_min, s_max, tau_0, ro, ksi, alpha, R, a
                 t = bestState[(raw-1) * n + col]
                 key = (tile, t, 0)
                 if key in pheromonesDict:
-                    pheromonesDict[key] += ro*distance/(1-ro)
+                    pheromonesDict[key] += distance/(1-rho)
             if col != n-1:
                 r = bestState[raw * n + col + 1]
                 key = (tile, r, 1)
                 if key in pheromonesDict:
-                    pheromonesDict[key] += ro*distance/(1-ro)
+                    pheromonesDict[key] += distance/(1-rho)
             if raw != n-1:
                 d = bestState[(raw + 1) * n + col]
                 key = (tile, d, 2)
                 if key in pheromonesDict:
-                    pheromonesDict[key] += ro*distance/(1-ro)
+                    pheromonesDict[key] += distance/(1-rho)
             if col != 0:
                 l = bestState[raw * n + col - 1]
                 key = (tile, l, 3)
                 if key in pheromonesDict:
-                    pheromonesDict[key] += ro*distance/(1-ro)
+                    pheromonesDict[key] += distance/(1-rho)
 
-        # ==== Aktualizacja wskaźników stagnacji i zakłóceń ====
-        if minheuristic < global_best_h:
-            global_best_h = minheuristic
-            stagnation = 0
-            s = s_min + (1-Dc) * (s - s_min)
-            s = int(round(s))
-            D = D_min + (1-Dc) * (D - D_min) 
-            q = 0.0 # Brak stagnacji
-        else:
-            stagnation += 1
-            q = min(1.0, stagnation / R)
-            s_target = s_min + int((s_max - s_min) * (q ** 3))
-            s = int((1 - Dp) * s + Dp * s_target)
-            s = min(s_max, max(s_min, s))
-
-            D_target = D_min + (D_max - D_min) * (q ** 3)
-            D = (1-Dp) * D + Dp * D_target   # wygładzanie
-        D = min(D_max, max(D_min, D))
-
-        # ==== DYNAMICZNE ZARZĄDZANIE FEROMONAMI (MMAS) ====
-        # 1. tau_max dąży do asymptoty opartej na globalnie najlepszym rozwiązaniu
-        best_possible_distance = 1 / (1 + global_best_h / scale)
-        tau_max = best_possible_distance
-
-        # 2. Bazowe tau_min upewnia się, że zawsze jest szansa na eksplorację
-        # Używamy n * n (liczba wszystkich kafelków) by zrównoważyć różnice w rozmiarach planszy
-        base_tau_min = tau_max / (n * n)
-
-        # 3. Jeśli algorytm utyka (stagnation rośnie), podnosimy tau_min!
-        # Gdy q dąży do 1, tau_min zbliża się do tau_max, zmuszając mrówki do ignorowania
-        # starych feromonów i mocnej eksploracji.
-        tau_min = base_tau_min + q * (tau_max - base_tau_min)
+        # ==== maximum pheromone value level adaptaion to the solving process progress ====
+        tau_max = 1 / (1 + global_best_h / scale)
 
         # ==== Evaporating all pheromones respectfully to evaporation coefficient ====
         for key in pheromonesDict:
-            # Tutaj używamy nowo policzonych dynamicznych limitów:
-            pheromonesDict[key] = max(tau_min, min(pheromonesDict[key] * (1-ro), tau_max))
+            pheromonesDict[key] = max(tau_min, min(pheromonesDict[key] * (1-rho), tau_max))
+
+        # ==== Stagnation and disturbance actualization ====
+        if minheuristic < global_best_h:
+            global_best_h = minheuristic
+            stagnation = 0
+            s = s_min
+            s = int(round(s))
+            D = D_min + (1-Dc) * (D - D_min) 
+        else:
+            stagnation += 1
+            q = min(1.0, stagnation / R)
+            s = int(math.floor(s_min + (s_max - s_min) * (q ** 2)))
+
+            D_target = D_min + (D_max - D_min) * (q ** 2)
+            D = (1-Dp) * D + Dp * D_target   # wygładzanie
+        D = min(D_max, max(D_min, D))
         
         print(bestAnt.bestNode.heuristic, bestAnt.bestNode.state)
 
@@ -391,6 +374,8 @@ def PathTrace(res):
     
     return out
 
+start5x5 = [i for i in range(1, 25)]
+start5x5.append(0)
 start6x6 = [i for i in range(1, 36)]
 start6x6.append(0)
 start7x7 = [i for i in range(1, 49)]
@@ -410,21 +395,26 @@ testState = [1,2,3,4,5,6,7,8,10,11,12,15,9,13,0,14]
 testState56 = [12,2,6,13,1,8,15,11,0,9,14,4,5,3,10,7]
 testState51 = [11,2,5,6,14,10,3,1,13,0,9,15,7,8,4,12]
 testhz = [1, 2, 3, 4, 5, 10, 7, 8, 9, 13, 11, 12, 0, 14, 15, 6]
-test5x5 = [2,17,1,5,23,15,10,7,8,4,21,20,19,0,24,3,11,22,9,12,18,13,16,6,14]
+test5x5 = shuffle(start5x5, 5)
+# test5x5 = [2,17,1,5,23,15,10,7,8,4,21,20,19,0,24,3,11,22,9,12,18,13,16,6,14]
 
 test6x6 = [10, 31, 27, 2, 19, 16, 21, 15, 28, 22, 20, 9, 30, 29, 1, 5, 34, 26, 33, 14, 25, 24, 17, 4, 13, 32, 35, 0, 7, 23, 3, 18, 6, 8, 12, 11]
+test7x7 = shuffle(start7x7, 7)
 test7x7 = [13, 25, 20, 29, 26, 23, 43, 10, 8, 5, 44, 32, 15, 22, 42, 34, 28, 30, 3, 27, 6, 45, 19, 11, 46, 47, 14, 17, 18, 9, 24, 37, 4, 33, 21, 31, 1, 0, 2, 40, 39, 12, 48, 36, 16, 38, 41, 7, 35]
 test8x8 = shuffle(start8x8, 8)
+# test8x8 = [14, 6, 0, 26, 11, 37, 34, 19, 36, 47, 60, 2, 55, 63, 56, 25, 24, 16, 29, 15, 39, 42, 49, 48, 22, 8, 45, 5, 38, 33, 28, 40, 52, 57, 44, 9, 18, 1, 10, 31, 13, 43, 41, 51, 59, 32, 46, 21, 54, 35, 12, 7, 62, 3, 27, 61, 58, 53, 23, 20, 50, 4, 17, 30]
 test9x9 = shuffle(start9x9, 9)
 test10x10 = shuffle(start10x10, 10)
 test11x11 = shuffle(start11x11, 11)
-n = 7
+
+
+n = 8
 movesForAnt = build_moves_for_ant(n)
 manhattan_LC = inicializeCriteriumFunc(n)
 
-#           initialState, n, N, top, s_min, s_max, tau_0, ro, ksi, alpha, R, a_min, a_max, Dc, Dp, beta
+#           initialState, n, N, top, s_min, s_max, tau_0, rho, xi, alpha, R, a_min, a_max, Dc, Dp, beta
 start = perf_counter()
-res1 = AntSearch(test7x7, n, 100, 20, 3, 50, 0.2, 0.05, 0.2, 2, 4, 0.1, 0.85, 0.8, 0.8, 1) 
+res1 = AntSearch(test8x8, n, 100, 50, 50, 90, 0.1, 0.2, 0.4, 1, 10, 0.1, 0.85, 0.6, 0.05, 3) 
 end = perf_counter()
 # initialState - The beginning of ants journery
 # n - sliding puzzle dimension(more of a size e.g. 3x3, 4x4, 5x5)
@@ -433,9 +423,9 @@ end = perf_counter()
 # s_min - minimum number of steps that ant make exploring states in one global iteration
 # s_max - maximum number of steps that wil make exploring states in one global iteration
 # tau_0 - the initial pheromone impact coefficient
-# ro - the global pheramone evaporation coefficient. Applied to every relation in PheramoneDict
-# ksi - the local pheramone evaporation coefficient. Applied localy to one-four correct relations per move of an ant
-# R - the threshold representing how many global iterations without heuristic improvment we would tolerate
+# rho - the global pheramone evaporation coefficient. Applied to every relation in PheramoneDict
+# xi - the local pheramone evaporation coefficient. Applied localy to one-four correct relations per move of an ant
+# R - A stagnation scaling factor that regulates how heavily non-improving iterations impact the increase in ant exploration steps and the overall disturbance of the colony.
 # alpha - the power of pheromone impact
 # a_min - how much of allowance for ant during low disturbance
 # a_max - allowance, parametr which determine how much of exploration we want to allow during high distrubance
@@ -446,31 +436,3 @@ end = perf_counter()
 res1 = PathTrace(res1)
 print(f"Number of steps: {len(res1)}")
 print("Time (s): ", f"{end-start:.3f}")
-
-
-# def ZeroTrace(path):
-#     nodesZeroList = []
-#     nodesCounter = len(path)
-#     for p in path:
-#         nodesZeroList.append(p.index(0))
-
-#     return nodesZeroList, nodesCounter
-
-
-# with os.scandir("In") as entries:
-#     for entry in entries:
-#         if entry.is_file():
-#             with open(entry.path, 'r') as f:
-#                 t = [int(i) for i in f.readline().split(', ')]
-#                 start = perf_counter()
-#                 solution = AntSearch(t, n, 200, 40, 30, 5, 0.2, 0.05, 0.2, 2, 3, 0.001, 0.95, 1, 1) 
-#                 end = perf_counter()
-#                 path = PathTrace(solution)
-#                 nodesStats = ZeroTrace(path)
-#                 nodesZeroList = nodesStats[0]
-#                 nodesCounter = nodesStats[1]
-#                 raw1 = f"Blank element moves: {'->'.join([str(i) for i in nodesZeroList])}\n"
-#                 raw2 = f"Number of moves: {nodesCounter - 1}\n"
-#                 raw3 = f"Solution search time: {end-start:.5f}\n"
-#                 with open(f"{'Out'}/{entry.name[:-4]}_out.txt", "w", encoding="utf-8") as f:
-#                     f.writelines([raw1, raw2, raw3])
