@@ -387,7 +387,7 @@ def stats(n, title, params):
         res = PathTrace(res)
         time = end-start
         ws.append([i+1, len(res), time])
-    wb.save("Results" + title +".xlsx")
+    wb.save("Test/Results" + title +".xlsx")
 
 
 start5x5 = [i for i in range(1, 25)]
@@ -441,7 +441,7 @@ test11x11_random = shuffle(start11x11, 11)
 n = 4
 movesForAnt = build_moves_for_ant(n)
 manhattan_LC = inicializeCriteriumFunc(n)
-stats(15, "Probalistic nature 4x4", (test8x8_random, n, 40,10,50,100,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,2))
+stats(30, "Probalistic nature 4x4", (testState56, n, 120,20,12,16,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,2))
 
 # initialState - The beginning of ants journery
 # n - sliding puzzle dimension(more of a size e.g. 3x3, 4x4, 5x5)
