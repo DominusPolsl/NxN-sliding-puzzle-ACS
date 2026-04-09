@@ -1,7 +1,7 @@
 import random
 from time import perf_counter
 import math
-import openpyxl
+import os
 
 # Count inversions: comparing elements 'a' and 'b' at indices 'i' and 'j' respectively; when a > b & i > j, it's called an inversion
 def countInversions(table, n):
@@ -374,20 +374,22 @@ def PathTrace(res):
     
     return out
 
-def stats(n, title, params):
+def stats(n, title, r, params):
     
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = title
-    ws.append(["Iteration", "Steps", "Time"])
+    
+    with open("Test/"+title+".txt", "w") as wf:
+        wf.write("Iteration, Steps, Time\n")
+    
     for i in range(n):
-        start = perf_counter()
-        res = AntSearch(*params)
-        end = perf_counter()
-        res = PathTrace(res)
-        time = end-start
-        ws.append([i+1, len(res), time])
-    wb.save("Test/Results" + title +".xlsx")
+        with open("Test/"+title+".txt", "a") as af:
+            if r:
+                params[0] = shuffle(params[0], params[1])
+            start = perf_counter()
+            res = AntSearch(*params)
+            end = perf_counter()
+            res = PathTrace(res)
+            time = end-start
+            af.write(str(i+1) + " " + str(len(res)) + " " + f"{time:.3f}\n")
 
 
 start5x5 = [i for i in range(1, 25)]
@@ -411,37 +413,30 @@ testState = [1,2,3,4,5,6,7,8,10,11,12,15,9,13,0,14]
 testState56 = [12,2,6,13,1,8,15,11,0,9,14,4,5,3,10,7]
 testState51 = [11,2,5,6,14,10,3,1,13,0,9,15,7,8,4,12]
 testhz = [1, 2, 3, 4, 5, 10, 7, 8, 9, 13, 11, 12, 0, 14, 15, 6]
-test5x5_random = shuffle(start5x5, 5)
 test5x5_static = [2,17,1,5,23,15,10,7,8,4,21,20,19,0,24,3,11,22,9,12,18,13,16,6,14]
 
 test6x6 = [10, 31, 27, 2, 19, 16, 21, 15, 28, 22, 20, 9, 30, 29, 1, 5, 34, 26, 33, 14, 25, 24, 17, 4, 13, 32, 35, 0, 7, 23, 3, 18, 6, 8, 12, 11]
-test7x7_random = shuffle(start7x7, 7)
 test7x7_static = [13, 25, 20, 29, 26, 23, 43, 10, 8, 5, 44, 32, 15, 22, 42, 34, 28, 30, 3, 27, 6, 45, 19, 11, 46, 47, 14, 17, 18, 9, 24, 37, 4, 33, 21, 31, 1, 0, 2, 40, 39, 12, 48, 36, 16, 38, 41, 7, 35]
-test8x8_random = shuffle(start8x8, 8)
 test8x8_static = [14, 6, 0, 26, 11, 37, 34, 19, 36, 47, 60, 2, 55, 63, 56, 25, 24, 16, 29, 15, 39, 42, 49, 48, 22, 8, 45, 5, 38, 33, 28, 40, 52, 57, 44, 9, 18, 1, 10, 31, 13, 43, 41, 51, 59, 32, 46, 21, 54, 35, 12, 7, 62, 3, 27, 61, 58, 53, 23, 20, 50, 4, 17, 30]
-test9x9 = shuffle(start9x9, 9)
-test10x10 = shuffle(start10x10, 10)
-test11x11_random = shuffle(start11x11, 11)
 
 
+# ========================= Tests ========================= #
 
-
-#           initialState, n, N, top, s_min, s_max, tau_0, rho, xi, alpha, R, a_min, a_max, Dc, Dp, beta
-
-# res1 = AntSearch(testState56, n, 120,20,12,16,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,2) 
-# test1.1: 30, "Probalistic nature 4x4", (testState56, n, 120,20,12,16,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,2)
-# test1.2: 20, "Probalistic nature 7x7", (test7x7_static, n, 120,20,35,49,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,2)
-# test2.1: 15, "Heuristic-driven, same state test", (test8x8_static, n, 40,10,50,100,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,3)
-# test2.2: 15, "Pheromone-driven, same state test", (test8x8_static, n, 40,10,50,100,0.1,0.2,0.4,2,10,0.1,0.85,0.6,0.05,1)
-# test2.3: 15, "Balanced, same state test", (test8x8_static, n, 40,10,50,100,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,1)
-# test3.1: 25, "Random state test 5x5", (test5x5_random, n, 60,20,10,25,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,3)
-# test3.2: 15, "Random state test 8x8", (test8x8_random, n, 60,20,40,90,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,3)
-# test4: 2, "Random state test 11x11", (test11x11_random, n, 40,10,100,180,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,3)
+# test1.1: 30, "Probalistic nature 4x4", False, [testState56, n, 120,20,12,16,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,2]
+# test1.2: 20, "Probalistic nature 7x7", False, [test7x7_static, n, 120,20,35,49,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,2]
+# test2.1: 15, "Heuristic-driven, same state test", False, [test8x8_static, n, 40,10,50,100,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,3]
+# test2.2: 15, "Pheromone-driven, same state test", False, [test8x8_static, n, 40,10,50,100,0.1,0.2,0.4,2,10,0.1,0.85,0.6,0.05,1]
+# test2.3: 15, "Balanced, same state test", False, [test8x8_static, n, 40,10,50,100,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,1]
+# test3.1: 25, "Random state test 5x5", True, [start5x5, n, 60,20,10,25,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,3]
+# test3.2: 15, "Random state test 8x8", True, [start8x8, n, 60,20,40,90,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,3]
+# test4: 10, "Random state test 11x11", True, [start11x11, n, 40,10,100,180,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,3]
 
 n = 4
 movesForAnt = build_moves_for_ant(n)
 manhattan_LC = inicializeCriteriumFunc(n)
-stats(30, "Probalistic nature 4x4", (testState56, n, 120,20,12,16,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,2))
+if not os.path.exists("Test"):
+    os.makedirs("Test")
+stats(30, "Probalistic nature 4x4", False, [testState56, n, 120,20,12,16,0.1,0.2,0.4,1,10,0.1,0.85,0.6,0.05,2])
 
 # initialState - The beginning of ants journery
 # n - sliding puzzle dimension(more of a size e.g. 3x3, 4x4, 5x5)
